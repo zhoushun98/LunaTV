@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   ExternalLink,
-  KeyRound,
   LogOut,
   Settings,
   Shield,
@@ -24,42 +23,35 @@ import { checkForUpdates, UpdateStatus } from '@/lib/version_check';
 import { VersionPanel } from './VersionPanel';
 
 interface AuthInfo {
-  username?: string;
-  role?: 'owner' | 'admin' | 'user';
+  role?: 'owner';
 }
 
 export const UserMenu: React.FC = () => {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
   const [isVersionPanelOpen, setIsVersionPanelOpen] = useState(false);
   const [authInfo, setAuthInfo] = useState<AuthInfo | null>(null);
-  const [storageType, setStorageType] = useState<string>('localstorage');
   const [mounted, setMounted] = useState(false);
 
   // Body 滚动锁定 - 使用 overflow 方式避免布局问题
   useEffect(() => {
-    if (isSettingsOpen || isChangePasswordOpen) {
+    if (isSettingsOpen) {
       const body = document.body;
       const html = document.documentElement;
 
-      // 保存原始样式
       const originalBodyOverflow = body.style.overflow;
       const originalHtmlOverflow = html.style.overflow;
 
-      // 只设置 overflow 来阻止滚动
       body.style.overflow = 'hidden';
       html.style.overflow = 'hidden';
 
       return () => {
-
-        // 恢复所有原始样式
         body.style.overflow = originalBodyOverflow;
         html.style.overflow = originalHtmlOverflow;
       };
     }
-  }, [isSettingsOpen, isChangePasswordOpen]);
+  }, [isSettingsOpen]);
 
   // 设置相关状态
   const [defaultAggregateSearch, setDefaultAggregateSearch] = useState(true);
@@ -97,12 +89,6 @@ export const UserMenu: React.FC = () => {
     { value: 'custom', label: '自定义代理' },
   ];
 
-  // 修改密码相关状态
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordLoading, setPasswordLoading] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-
   // 版本检查相关状态
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [isChecking, setIsChecking] = useState(true);
@@ -112,15 +98,11 @@ export const UserMenu: React.FC = () => {
     setMounted(true);
   }, []);
 
-  // 获取认证信息和存储类型
+  // 获取认证信息
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const auth = getAuthInfoFromBrowserCookie();
       setAuthInfo(auth);
-
-      const type =
-        (window as any).RUNTIME_CONFIG?.STORAGE_TYPE || 'localstorage';
-      setStorageType(type);
     }
   }, []);
 
@@ -274,65 +256,6 @@ export const UserMenu: React.FC = () => {
     router.push('/admin');
   };
 
-  const handleChangePassword = () => {
-    setIsOpen(false);
-    setIsChangePasswordOpen(true);
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
-  };
-
-  const handleCloseChangePassword = () => {
-    setIsChangePasswordOpen(false);
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
-  };
-
-  const handleSubmitChangePassword = async () => {
-    setPasswordError('');
-
-    // 验证密码
-    if (!newPassword) {
-      setPasswordError('新密码不得为空');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setPasswordError('两次输入的密码不一致');
-      return;
-    }
-
-    setPasswordLoading(true);
-
-    try {
-      const response = await fetch('/api/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          newPassword,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setPasswordError(data.error || '修改密码失败');
-        return;
-      }
-
-      // 修改成功，关闭弹窗并登出
-      setIsChangePasswordOpen(false);
-      await handleLogout();
-    } catch (error) {
-      setPasswordError('网络错误，请稍后重试');
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
-
   const handleSettings = () => {
     setIsOpen(false);
     setIsSettingsOpen(true);
@@ -454,27 +377,7 @@ export const UserMenu: React.FC = () => {
     }
   };
 
-  // 检查是否显示管理面板按钮
-  const showAdminPanel =
-    authInfo?.role === 'owner' || authInfo?.role === 'admin';
-
-  // 检查是否显示修改密码按钮
-  const showChangePassword =
-    authInfo?.role !== 'owner' && storageType !== 'localstorage';
-
-  // 角色中文映射
-  const getRoleText = (role?: string) => {
-    switch (role) {
-      case 'owner':
-        return '站长';
-      case 'admin':
-        return '管理员';
-      case 'user':
-        return '用户';
-      default:
-        return '';
-    }
-  };
+  const isOwner = authInfo?.role === 'owner';
 
   // 菜单面板内容
   const menuPanel = (
@@ -492,27 +395,19 @@ export const UserMenu: React.FC = () => {
           <div className='space-y-1'>
             <div className='flex items-center justify-between'>
               <span className='text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider'>
-                当前用户
+                当前身份
               </span>
               <span
-                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${(authInfo?.role || 'user') === 'owner'
+                className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${isOwner
                   ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
-                  : (authInfo?.role || 'user') === 'admin'
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
-                    : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                  : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
                   }`}
               >
-                {getRoleText(authInfo?.role || 'user')}
+                {isOwner ? '站长' : '游客'}
               </span>
             </div>
-            <div className='flex items-center justify-between'>
-              <div className='font-semibold text-gray-900 dark:text-gray-100 text-sm truncate'>
-                {authInfo?.username || 'default'}
-              </div>
-              <div className='text-[10px] text-gray-400 dark:text-gray-500'>
-                数据存储：
-                {storageType === 'localstorage' ? '本地' : storageType}
-              </div>
+            <div className='text-[10px] text-gray-400 dark:text-gray-500'>
+              收藏、历史仅保存在此浏览器
             </div>
           </div>
         </div>
@@ -525,11 +420,11 @@ export const UserMenu: React.FC = () => {
             className='w-full px-3 py-2 text-left flex items-center gap-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm'
           >
             <Settings className='w-4 h-4 text-gray-500 dark:text-gray-400' />
-            <span className='font-medium'>设置</span>
+            <span className='font-medium'>本地设置</span>
           </button>
 
-          {/* 管理面板按钮 */}
-          {showAdminPanel && (
+          {/* 管理面板按钮 - 仅站长 */}
+          {isOwner && (
             <button
               onClick={handleAdminPanel}
               className='w-full px-3 py-2 text-left flex items-center gap-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm'
@@ -539,28 +434,19 @@ export const UserMenu: React.FC = () => {
             </button>
           )}
 
-          {/* 修改密码按钮 */}
-          {showChangePassword && (
-            <button
-              onClick={handleChangePassword}
-              className='w-full px-3 py-2 text-left flex items-center gap-2.5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm'
-            >
-              <KeyRound className='w-4 h-4 text-gray-500 dark:text-gray-400' />
-              <span className='font-medium'>修改密码</span>
-            </button>
+          {/* 登出按钮 - 仅站长 */}
+          {isOwner && (
+            <>
+              <div className='my-1 border-t border-gray-200 dark:border-gray-700'></div>
+              <button
+                onClick={handleLogout}
+                className='w-full px-3 py-2 text-left flex items-center gap-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm'
+              >
+                <LogOut className='w-4 h-4' />
+                <span className='font-medium'>登出</span>
+              </button>
+            </>
           )}
-
-          {/* 分割线 */}
-          <div className='my-1 border-t border-gray-200 dark:border-gray-700'></div>
-
-          {/* 登出按钮 */}
-          <button
-            onClick={handleLogout}
-            className='w-full px-3 py-2 text-left flex items-center gap-2.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm'
-          >
-            <LogOut className='w-4 h-4' />
-            <span className='font-medium'>登出</span>
-          </button>
 
           {/* 分割线 */}
           <div className='my-1 border-t border-gray-200 dark:border-gray-700'></div>
@@ -971,125 +857,6 @@ export const UserMenu: React.FC = () => {
     </>
   );
 
-  // 修改密码面板内容
-  const changePasswordPanel = (
-    <>
-      {/* 背景遮罩 */}
-      <div
-        className='fixed inset-0 bg-black/50 backdrop-blur-sm z-[1000]'
-        onClick={handleCloseChangePassword}
-        onTouchMove={(e) => {
-          // 只阻止滚动，允许其他触摸事件
-          e.preventDefault();
-        }}
-        onWheel={(e) => {
-          // 阻止滚轮滚动
-          e.preventDefault();
-        }}
-        style={{
-          touchAction: 'none',
-        }}
-      />
-
-      {/* 修改密码面板 */}
-      <div
-        className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-gray-900 rounded-xl shadow-xl z-[1001] overflow-hidden'
-      >
-        {/* 内容容器 - 独立的滚动区域 */}
-        <div
-          className='h-full p-6'
-          data-panel-content
-          onTouchMove={(e) => {
-            // 阻止事件冒泡到遮罩层，但允许内部滚动
-            e.stopPropagation();
-          }}
-          style={{
-            touchAction: 'auto', // 允许所有触摸操作
-          }}
-        >
-          {/* 标题栏 */}
-          <div className='flex items-center justify-between mb-6'>
-            <h3 className='text-xl font-bold text-gray-800 dark:text-gray-200'>
-              修改密码
-            </h3>
-            <button
-              onClick={handleCloseChangePassword}
-              className='w-8 h-8 p-1 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors'
-              aria-label='Close'
-            >
-              <X className='w-full h-full' />
-            </button>
-          </div>
-
-          {/* 表单 */}
-          <div className='space-y-4'>
-            {/* 新密码输入 */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                新密码
-              </label>
-              <input
-                type='password'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400'
-                placeholder='请输入新密码'
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                disabled={passwordLoading}
-              />
-            </div>
-
-            {/* 确认密码输入 */}
-            <div>
-              <label className='block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'>
-                确认密码
-              </label>
-              <input
-                type='password'
-                className='w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-colors bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400'
-                placeholder='请再次输入新密码'
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={passwordLoading}
-              />
-            </div>
-
-            {/* 错误信息 */}
-            {passwordError && (
-              <div className='text-red-500 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-md border border-red-200 dark:border-red-800'>
-                {passwordError}
-              </div>
-            )}
-          </div>
-
-          {/* 操作按钮 */}
-          <div className='flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700'>
-            <button
-              onClick={handleCloseChangePassword}
-              className='flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md transition-colors'
-              disabled={passwordLoading}
-            >
-              取消
-            </button>
-            <button
-              onClick={handleSubmitChangePassword}
-              className='flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
-              disabled={passwordLoading || !newPassword || !confirmPassword}
-            >
-              {passwordLoading ? '修改中...' : '确认修改'}
-            </button>
-          </div>
-
-          {/* 底部说明 */}
-          <div className='mt-4 pt-4 border-t border-gray-200 dark:border-gray-700'>
-            <p className='text-xs text-gray-500 dark:text-gray-400 text-center'>
-              修改密码后需要重新登录
-            </p>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-
   return (
     <>
       <div className='relative'>
@@ -1110,11 +877,6 @@ export const UserMenu: React.FC = () => {
 
       {/* 使用 Portal 将设置面板渲染到 document.body */}
       {isSettingsOpen && mounted && createPortal(settingsPanel, document.body)}
-
-      {/* 使用 Portal 将修改密码面板渲染到 document.body */}
-      {isChangePasswordOpen &&
-        mounted &&
-        createPortal(changePasswordPanel, document.body)}
 
       {/* 版本面板 */}
       <VersionPanel

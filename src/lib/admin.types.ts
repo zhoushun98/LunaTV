@@ -18,19 +18,6 @@ export interface AdminConfig {
     FluidSearch: boolean;
     EnableWebLive: boolean;
   };
-  UserConfig: {
-    Users: {
-      username: string;
-      role: 'user' | 'admin' | 'owner';
-      banned?: boolean;
-      enabledApis?: string[]; // 优先级高于tags限制
-      tags?: string[]; // 多 tags 取并集限制
-    }[];
-    Tags?: {
-      name: string;
-      enabledApis: string[];
-    }[];
-  };
   SourceConfig: {
     key: string;
     name: string;
@@ -59,6 +46,6 @@ export interface AdminConfig {
 }
 
 export interface AdminConfigResult {
-  Role: 'owner' | 'admin';
+  Role: 'owner';
   Config: AdminConfig;
 }

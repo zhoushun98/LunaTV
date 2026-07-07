@@ -96,7 +96,6 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - USERNAME=admin
       - PASSWORD=admin_password
       - NEXT_PUBLIC_STORAGE_TYPE=kvrocks
       - KVROCKS_URL=redis://moontv-kvrocks:6666
@@ -130,7 +129,6 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - USERNAME=admin
       - PASSWORD=admin_password
       - NEXT_PUBLIC_STORAGE_TYPE=redis
       - REDIS_URL=redis://moontv-redis:6379
@@ -166,7 +164,6 @@ services:
     ports:
       - '3000:3000'
     environment:
-      - USERNAME=admin
       - PASSWORD=admin_password
       - NEXT_PUBLIC_STORAGE_TYPE=upstash
       - UPSTASH_URL=上面 https 开头的 HTTPS ENDPOINT
@@ -205,11 +202,10 @@ Zeabur 是一站式云端部署平台，使用预构建的 Docker 镜像可以�
    在 LunaTV 服务的环境变量中添加：
 
    ```env
-   # 必填：管理员账号
-   USERNAME=admin
+   # 必填：管理员密码
    PASSWORD=your_secure_password
 
-   # 必填：存储配置
+   # 必填：后台配置的存储方式（视频源/站点设置等）
    NEXT_PUBLIC_STORAGE_TYPE=kvrocks
    KVROCKS_URL=redis://apachekvrocks:6666
 
@@ -322,14 +318,15 @@ dockge/komodo 等 docker compose UI 也有自动更新功能
 
 ## 环境变量
 
+> 版本说明：自 v100.2.x 起，普通用户账号体系已移除，访客直接以游客身份观看，个人数据（收藏、播放历史、搜索历史、跳过片头/片尾）仅保存在本机浏览器 `localStorage`。仅站长登录 `/admin` 管理配置。原 `USERNAME` 环境变量不再使用；旧数据库中的用户数据在新版本中不再读写，请自行清理。
+
 | 变量                                | 说明                                         | 可选值                           | 默认值                                                                                                                     |
 | ----------------------------------- | -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| USERNAME                            | 站长账号           | 任意字符串                       | 无默认，必填字段                                                                                                                     |
-| PASSWORD                            | 站长密码           | 任意字符串                       | 无默认，必填字段                                                                                                                     |
+| PASSWORD                            | 站长（管理员）登录密码，用于访问 `/admin`                              | 任意字符串                       | 无默认，必填字段                                                                                                                     |
 | SITE_BASE                           | 站点 url              |       形如 https://example.com                  | 空                                                                                                                     |
 | NEXT_PUBLIC_SITE_NAME               | 站点名称                                     | 任意字符串                       | MoonTV                                                                                                                     |
 | ANNOUNCEMENT                        | 站点公告                                     | 任意字符串                       | 本网站仅提供影视信息搜索服务，所有内容均来自第三方网站。本站不存储任何视频资源，不对任何内容的准确性、合法性、完整性负责。 |
-| NEXT_PUBLIC_STORAGE_TYPE            | 播放记录/收藏的存储方式                      | redis、kvrocks、upstash | 无默认，必填字段                                                                                                               |
+| NEXT_PUBLIC_STORAGE_TYPE            | 后台配置（视频源/直播源/站点设置等）的持久化方式；用户播放记录/收藏固定存浏览器 localStorage                      | redis、kvrocks、upstash | 无默认，必填字段                                                                                                               |
 | KVROCKS_URL                           | kvrocks 连接 url                               | 连接 url                         | 空                                                                                                                         |
 | REDIS_URL                           | redis 连接 url                               | 连接 url                         | 空                                                                                                                         |
 | UPSTASH_URL                         | upstash redis 连接 url                       | 连接 url                         | 空                                                                                                                         |
@@ -371,13 +368,13 @@ v100.0.0 以上版本可配合 [Selene](https://github.com/MoonTechLab/Selene) �
 
 ## 安全与隐私提醒
 
-### 请设置密码保护并关闭公网注册
+### 请设置密码保护
 
-为了您的安全和避免潜在的法律风险，我们要求在部署时**强烈建议关闭公网注册**：
+访客直接以游客身份观看，无需登录；`/admin` 管理后台需要密码。请务必设置 `PASSWORD` 环境变量，否则访问 `/admin` 会跳转到安全警告页。
 
 ### 部署要求
 
-1. **设置环境变量 `PASSWORD`**：为您的实例设置一个强密码
+1. **设置环境变量 `PASSWORD`**：为管理后台设置一个强密码
 2. **仅供个人使用**：请勿将您的实例链接公开分享或传播
 3. **遵守当地法律**：请确保您的使用行为符合当地法律法规
 

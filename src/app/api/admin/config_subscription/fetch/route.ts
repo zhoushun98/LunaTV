@@ -2,25 +2,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthInfoFromCookie } from '@/lib/auth';
+import { isOwner } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
+  if (!(await isOwner(request))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    // 权限检查：仅站长可以拉取配置订阅
-    const authInfo = getAuthInfoFromCookie(request);
-    if (!authInfo || !authInfo.username) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    if (authInfo.username !== process.env.USERNAME) {
-      return NextResponse.json(
-        { error: '权限不足，只有站长可以拉取配置订阅' },
-        { status: 401 }
-      );
-    }
-
     const { url } = await request.json();
 
     if (!url) {

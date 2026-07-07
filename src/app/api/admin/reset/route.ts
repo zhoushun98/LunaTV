@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthInfoFromCookie } from '@/lib/auth';
+import { isOwner } from '@/lib/auth';
 import { resetConfig } from '@/lib/config';
 
 export const runtime = 'nodejs';
@@ -18,14 +18,8 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const authInfo = getAuthInfoFromCookie(request);
-  if (!authInfo || !authInfo.username) {
+  if (!(await isOwner(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-  const username = authInfo.username;
-
-  if (username !== process.env.USERNAME) {
-    return NextResponse.json({ error: '仅支持站长重置配置' }, { status: 401 });
   }
 
   try {

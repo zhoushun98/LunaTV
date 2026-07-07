@@ -220,32 +220,10 @@ async function getInitConfig(configFile: string, subConfig: {
         process.env.NEXT_PUBLIC_FLUID_SEARCH !== 'false',
       EnableWebLive: false,
     },
-    UserConfig: {
-      Users: [],
-    },
     SourceConfig: [],
     CustomCategories: [],
     LiveConfig: [],
   };
-
-  // 补充用户信息
-  let userNames: string[] = [];
-  try {
-    userNames = await db.getAllUsers();
-  } catch (e) {
-    console.error('获取用户列表失败:', e);
-  }
-  const allUsers = userNames.filter((u) => u !== process.env.USERNAME).map((u) => ({
-    username: u,
-    role: 'user',
-    banned: false,
-  }));
-  allUsers.unshift({
-    username: process.env.USERNAME!,
-    role: 'owner',
-    banned: false,
-  });
-  adminConfig.UserConfig.Users = allUsers as any;
 
   // 从配置文件中补充源信息
   Object.entries(cfgFile.api_site || []).forEach(([key, site]) => {
@@ -316,12 +294,6 @@ export async function getConfig(): Promise<AdminConfig> {
 
 export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
   // 确保必要的属性存在和初始化
-  if (!adminConfig.UserConfig) {
-    adminConfig.UserConfig = { Users: [] };
-  }
-  if (!adminConfig.UserConfig.Users || !Array.isArray(adminConfig.UserConfig.Users)) {
-    adminConfig.UserConfig.Users = [];
-  }
   if (!adminConfig.SourceConfig || !Array.isArray(adminConfig.SourceConfig)) {
     adminConfig.SourceConfig = [];
   }
@@ -331,36 +303,6 @@ export function configSelfCheck(adminConfig: AdminConfig): AdminConfig {
   if (!adminConfig.LiveConfig || !Array.isArray(adminConfig.LiveConfig)) {
     adminConfig.LiveConfig = [];
   }
-
-  // 站长变更自检
-  const ownerUser = process.env.USERNAME;
-
-  // 去重
-  const seenUsernames = new Set<string>();
-  adminConfig.UserConfig.Users = adminConfig.UserConfig.Users.filter((user) => {
-    if (seenUsernames.has(user.username)) {
-      return false;
-    }
-    seenUsernames.add(user.username);
-    return true;
-  });
-  // 过滤站长
-  const originOwnerCfg = adminConfig.UserConfig.Users.find((u) => u.username === ownerUser);
-  adminConfig.UserConfig.Users = adminConfig.UserConfig.Users.filter((user) => user.username !== ownerUser);
-  // 其他用户不得拥有 owner 权限
-  adminConfig.UserConfig.Users.forEach((user) => {
-    if (user.role === 'owner') {
-      user.role = 'user';
-    }
-  });
-  // 重新添加回站长
-  adminConfig.UserConfig.Users.unshift({
-    username: ownerUser!,
-    role: 'owner',
-    banned: false,
-    enabledApis: originOwnerCfg?.enabledApis || undefined,
-    tags: originOwnerCfg?.tags || undefined,
-  });
 
   // 采集源去重
   const seenSourceKeys = new Set<string>();
@@ -417,54 +359,9 @@ export async function getCacheTime(): Promise<number> {
   return config.SiteConfig.SiteInterfaceCacheTime || 7200;
 }
 
-export async function getAvailableApiSites(user?: string): Promise<ApiSite[]> {
+export async function getAvailableApiSites(): Promise<ApiSite[]> {
   const config = await getConfig();
-  const allApiSites = config.SourceConfig.filter((s) => !s.disabled);
-
-  if (!user) {
-    return allApiSites;
-  }
-
-  const userConfig = config.UserConfig.Users.find((u) => u.username === user);
-  if (!userConfig) {
-    return allApiSites;
-  }
-
-  // 优先根据用户自己的 enabledApis 配置查找
-  if (userConfig.enabledApis && userConfig.enabledApis.length > 0) {
-    const userApiSitesSet = new Set(userConfig.enabledApis);
-    return allApiSites.filter((s) => userApiSitesSet.has(s.key)).map((s) => ({
-      key: s.key,
-      name: s.name,
-      api: s.api,
-      detail: s.detail,
-    }));
-  }
-
-  // 如果没有 enabledApis 配置，则根据 tags 查找
-  if (userConfig.tags && userConfig.tags.length > 0 && config.UserConfig.Tags) {
-    const enabledApisFromTags = new Set<string>();
-
-    // 遍历用户的所有 tags，收集对应的 enabledApis
-    userConfig.tags.forEach(tagName => {
-      const tagConfig = config.UserConfig.Tags?.find(t => t.name === tagName);
-      if (tagConfig && tagConfig.enabledApis) {
-        tagConfig.enabledApis.forEach(apiKey => enabledApisFromTags.add(apiKey));
-      }
-    });
-
-    if (enabledApisFromTags.size > 0) {
-      return allApiSites.filter((s) => enabledApisFromTags.has(s.key)).map((s) => ({
-        key: s.key,
-        name: s.name,
-        api: s.api,
-        detail: s.detail,
-      }));
-    }
-  }
-
-  // 如果都没有配置，返回所有可用的 API 站点
-  return allApiSites;
+  return config.SourceConfig.filter((s) => !s.disabled);
 }
 
 export async function setCachedConfig(config: AdminConfig) {

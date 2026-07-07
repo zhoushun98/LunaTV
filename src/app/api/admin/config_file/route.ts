@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthInfoFromCookie } from '@/lib/auth';
+import { isOwner } from '@/lib/auth';
 import { getConfig, refineConfig } from '@/lib/config';
 import { db } from '@/lib/db';
 
@@ -19,25 +19,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const authInfo = getAuthInfoFromCookie(request);
-  if (!authInfo || !authInfo.username) {
+  if (!(await isOwner(request))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const username = authInfo.username;
 
   try {
-    // 检查用户权限
     let adminConfig = await getConfig();
 
-    // 仅站长可以修改配置文件
-    if (username !== process.env.USERNAME) {
-      return NextResponse.json(
-        { error: '权限不足，只有站长可以修改配置文件' },
-        { status: 401 }
-      );
-    }
-
-    // 获取请求体
     const body = await request.json();
     const { configFile, subscriptionUrl, autoUpdate, lastCheckTime } = body;
 
